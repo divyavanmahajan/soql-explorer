@@ -1,6 +1,8 @@
 var querydate=moment();
+var querydatetext="";
+var historyStats={};
 var refreshSeconds = 60;
-var intervalMinutes = 5; // 
+var intervalMinutes = 5; // 5 Minutes 
 document.getElementById("queryBtn").addEventListener("click", function () {
     var soql = document.getElementById("soql");
     var result = document.getElementById("result");
@@ -21,6 +23,7 @@ function showToken() {
         var tokentext = document.getElementById("oauth-token");
         tokentext.innerHTML = JSON.stringify(force.oauthStore());
         console.log("Token:" + force.oauthStore());
+        
     } catch (e) {
         console.error(e);
     }
@@ -64,6 +67,7 @@ function getObjectsChanged(object_name,name_field) {
     force.query(query2, function (response) {
         try {
             console.log("Count succeeded.");
+            historyStats[querydatetext][object_name]=response.totalSize;
             if (changed!=null) {
                 changed.innerHTML = response.totalSize +' '+ object_name+ " changes.";            
             }
@@ -73,20 +77,68 @@ function getObjectsChanged(object_name,name_field) {
         } catch(e) {
             console.error(e);
         }
+    },function(err) {
+        historyStats[querydatetext][object_name]=-1;
     });       
 }
 
 function refreshData() {
     querydate=moment().subtract(intervalMinutes,'m');
-    showToken();
+    querydatetext = querydate.format();// "dddd, MMMM Do YYYY, h:mm:ss a");
+    historyStats[querydatetext]={'Contact':-1,'Case':-1,'ServiceContract':-1};
     showDate();
+    showToken();
     getObjectsChanged('Contact','Name');
     getObjectsChanged('Case','CaseNumber');
     getObjectsChanged('ServiceContract','ContractNumber');
-    setTimeout(refreshData,refreshSeconds*1000); // Refresh after 1 minute;
 }
+function autoRefreshData() {
+    refreshData();
+    setTimeout(autoRefreshData,refreshSeconds*1000); // Refresh after 1 minute;
+}
+
+function keys(obj)
+{
+    var keys = [];
+
+    for(var key in obj)
+    {
+        if(obj.hasOwnProperty(key))
+        {
+            keys.push(key);
+        }
+    }
+
+    return keys;
+}
+// Display history table
+function showHistory() {
+    var timestamps = keys(historyStats).sort(function(a,b) { return b.localeCompare(a); });
+    var str = '';
+    var i=timestamps.length;
+    timestamps.forEach(function(stamp) {
+        str += '<tr>' +
+            '<td>' + i + '</td>' +
+            '<td>' + stamp + '</td>' +
+            '<td>' + historyStats[stamp]['Contact'] + '</td>' +
+            '<td>' + historyStats[stamp]['Case'] + '</td>' +
+            '<td>' + historyStats[stamp]['ServiceContract'] + '</td>' +
+            '</tr>';
+        i = i - 1
+        
+    }, this);
+    document.getElementById('history_table').innerHTML = str;
+
+}
+function autoShowHistory()
+{
+    showHistory();
+    setTimeout(autoShowHistory,15*1000); // Refresh after 15 secs;
+}
+    
 function login() {
-    force.login(refreshData);
+    force.login(autoRefreshData);
+    autoShowHistory();
 }
 if (window.location.hostname=='salty-gorge-66919.herokuapp.com') {
     force.init({appId: '3MVG9KI2HHAq33RzNHP6WHwVK23pR4J56AZuDEZQ9iAIIyAyKjAcom.Lg48fFwojC1YYZ9s00Dw4Ava.3leLi'});
