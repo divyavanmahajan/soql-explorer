@@ -1,9 +1,9 @@
 
-var messagesRef = new Firebase('https://yliqz3eba2sq.firebaseio.com/set1');
+var messagesRef = new Firebase('https://intense-torch-3200.firebaseio.com/xcmonitoring/set1');
 var querydate=moment();
 var querydatetext="";
 var historyStats={};
-var refreshSeconds = 300;
+var refreshSeconds = 60;
 var intervalMinutes = 5; // 5 Minutes 
 document.getElementById("queryBtn").addEventListener("click", function () {
     var soql = document.getElementById("soql");
@@ -49,8 +49,6 @@ function getObjectsChanged(object_name,name_field) {
                 object_name+' where LastModifiedDate > '+date.format()+' ORDER BY LastModifiedDate DESC limit 200';
     var soql = document.getElementById("soql");
     soql.innerHTML = query;
-    
-
     force.query(query, function (response) {
         var str = '';
         for (var i = 0; i < response.records.length; i++) {
@@ -91,49 +89,6 @@ function getObjectsChanged(object_name,name_field) {
     },function(err) {
         historyStats[querydatetext][object_name]=-1;
     });       
-
-    //get changes in SFSTAGE - for now just make it a random number until the funciton is ready to query it
-
-    var wcchange = Math.floor((Math.random() * 10) + 1);
-    console.log(wcchange);
-    var tsRef2 = messagesRef.child(querydatetext);
-    tsRef2.set({'WCServiceContract':wcchange});
-
-
-}
-
-//Get changed objects from wecare and put in firebase
-
-function sfstagechanged() {
-//    var date = querydate;
-
-
-// Get count from SFSTAGE database - none of this works yet
-//
-//    //var oracledb = require('oracledb');
-//
-//    oracledb.getConnection(
-//      {
-//        user          : "hr",
-//        password      : "welcome",
-//        connectString : "localhost/XE"
-//      },
-//      function(err, connection)
-//      {
-//        if (err) { console.error(err); return; }
-//        connection.execute(
-//          "SELECT department_id, department_name "
-//        + "FROM departments "
-//        + "WHERE department_id < 70 "
-//        + "ORDER BY department_id",
-//          function(err, result)
-//          {
-//            if (err) { console.error(err); return; }
-//            console.log(result.rows);
-//          });
-//      });
-
-
 }
 
 function refreshData() {
@@ -149,18 +104,13 @@ function refreshData() {
     tsRef.set({'Contact':-1,'Case':-1,'ServiceContract':-1,'WCContact':-1,'WCServiceContract':-1,'WCCase':-1,'Delta':-1}); 
     showDate();
     showToken();
-
-    //call fucntion to get changes from SFDC and update firebase
-
     getObjectsChanged('Contact','Name');
     getObjectsChanged('Case','CaseNumber');
     getObjectsChanged('ServiceContract','ContractNumber');
-
-
 }
 function autoRefreshData() {
     refreshData();
-    setTimeout(autoRefreshData,refreshSeconds*1000); // Refresh after 5 minute;
+    setTimeout(autoRefreshData,refreshSeconds*1000); // Refresh after 1 minute;
 }
 
 function keys(obj)
@@ -202,30 +152,15 @@ function showFirebaseHistory(snapshot) {
     var stamp = snapshot.key();
     var data = snapshot.val();
     // console.info(JSON.stringify(data));
-    var deltacalc = data['ServiceContract'] - data['WCServiceContract'];
-    // evaluate delta
-    var indicator = "?";
-    console.log(stamp);
-    var startdate = moment(stamp).format('hh:mm');
-    var enddate = moment(stamp).add(intervalMinutes,'m').format('hh:mm');
-    if (deltacalc == 0) {
-        var indicator = "bgcolor='#008000'";
-        }
-        else if (deltacalc > -4 && deltacalc < 4) {
-        var indicator = "bgcolor='#FFFF00'";
-        }
-        else {
-        var indicator = "bgcolor='#FF0000'";
-        }
-
-    var columns =
-            '<td>' + startdate + '</td>' +
-            '<td>' + enddate + '</td>' +
+    var columns = '<td>-</td>' +
+            '<td>' + stamp + '</td>' +
+            '<td>' + data['Contact'] + '</td>' +
+            '<td>' + data['Case'] + '</td>' +
             '<td>' + data['ServiceContract'] + '</td>' +
+            '<td>' + data['WCContact'] + '</td>' +
+            '<td>' + data['WCCase'] + '</td>' +
             '<td>' + data['WCServiceContract'] + '</td>' +
-            '<td>' + deltacalc + '</td>' +
-            '<td ' + indicator + '></td>';
-
+            '<td>' + data['Delta'] + '</td>';
     
     // Using JQuery to add a row to the table
     var row = savedrows[stamp];
@@ -236,7 +171,7 @@ function showFirebaseHistory(snapshot) {
         row=$(str);
         row.html(columns);
         var tblbody = $('#firebase_table');
-        tblbody.prepend(row);
+        tblbody.append(row);
         savedrows[stamp]=row;
         //console.info('2');
     } else {
@@ -246,7 +181,6 @@ function showFirebaseHistory(snapshot) {
     }
     
 }
-
 function removeFirebaseHistory(snapshot)
 {
     //GET DATA
@@ -276,7 +210,7 @@ if (window.location.hostname=='salty-gorge-66919.herokuapp.com') {
 }
 // login();
 
-var query = messagesRef.limitToLast(20);
+var query = messagesRef.limitToLast(10);
 query.on('child_added',showFirebaseHistory);
 query.on('child_changed',showFirebaseHistory);
 query.on('child_removed',removeFirebaseHistory);
